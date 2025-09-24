@@ -1,6 +1,14 @@
 # 📘 PhoneBook Project
 
-A **full-stack Node.js + PostgreSQL application** for managing contacts and importing Geonames city data.
+![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
+![Sequelize](https://img.shields.io/badge/Sequelize-52B0E7?style=for-the-badge&logo=sequelize&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=FFD62E)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+
+A **full-stack Node.js + PostgreSQL + React** application for managing contacts and importing Geonames city data.
 
 ---
 
@@ -24,8 +32,13 @@ npm install
 cd backend
 npm install
 cd ..
-```
 
+# in frontend folder (server dependencies)
+cd ../frontend
+npm install
+cd ..
+
+```
 ---
 
 ## ⚙️ 3. Environment configuration
@@ -90,14 +103,18 @@ Start backend:
 
 ```bash
 cd backend
-npm start
+npm run dev   # development (sa nodemon, auto-restart)
+# ili
+npm start     # production
 ```
 
 Start frontend (if exists):
 
 ```bash
 cd frontend
-npm start
+npm run dev   # development server na http://localhost:5173
+# ili
+npm run build && npm run preview   # build + preview
 ```
 
 ---
@@ -121,6 +138,19 @@ Install them (if missing):
 npm install dotenv sequelize pg pg-hstore express cors http-errors nodemailer bcrypt jsonwebtoken
 ```
 
+Key frontend dependencies:
+
+- **react** — UI library
+- **vite** — build tool
+- **tailwindcss** — styling
+- **postcss** — CSS transformations
+- **autoprefixer** — vendor prefixer
+
+Install them (if missing):
+```bash
+npm install react react-dom
+npm install -D vite tailwindcss postcss autoprefixer
+```
 ---
 
 ## 📜 8. Available Scripts
@@ -135,6 +165,10 @@ Inside the `backend` folder, you can run:
 - `npm run lint` → Run ESLint checks.  
 - `npm run format` → Format code using Prettier.  
 
+Inside the `frontend` folder, you can run:
+- `npm run dev` → Start dev server (http://localhost:5173).
+- `npm run build` → Create production build.
+- `npm run preview` → Preview production build localy.
 ---
 
 ## ⚠️ Notes
