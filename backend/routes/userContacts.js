@@ -9,9 +9,14 @@ import {
 
 const r = Router();
 
+/* =====================
+   UserContact Routes
+===================== */
 r.post("/", createUserContact);
+
 r.get("/user/:userId", getUserContacts);
 r.get("/user/:userId/search", searchUserContacts);
+
 r.put("/:id", updateUserContact);
 r.delete("/:id", deleteUserContact);
 

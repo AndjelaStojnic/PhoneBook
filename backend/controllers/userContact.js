@@ -3,23 +3,21 @@ import { UserContact } from "../models/UserContact.js";
 import { User } from "../models/User.js";
 import { Op } from "sequelize";
 
-// Kreiranje veze user ↔ user
+// ➕ Kreiranje veze user ↔ user
 export async function createUserContact(req, res) {
   try {
     const { userId, contactUserId, favorite } = req.body;
 
     if (!userId || !contactUserId) {
-      return res.status(400).json({ ok: false, error: "Missing fields" });
+      return res.status(400).json({ ok: false, error: "userId i contactUserId su obavezni" });
     }
-
     if (userId === contactUserId) {
-      return res.status(400).json({ ok: false, error: "Cannot add yourself" });
+      return res.status(400).json({ ok: false, error: "Ne možete dodati sami sebe" });
     }
 
-    // pronađi korisnika koji se dodaje
     const contactUser = await User.findByPk(contactUserId);
     if (!contactUser) {
-      return res.status(404).json({ ok: false, error: "Contact user not found" });
+      return res.status(404).json({ ok: false, error: "Korisnik za povezivanje nije pronađen" });
     }
 
     const uc = await UserContact.create({
@@ -31,13 +29,17 @@ export async function createUserContact(req, res) {
       favorite: favorite || false,
     });
 
-    res.status(201).json({ ok: true, userContact: uc });
+    res.status(201).json({
+      ok: true,
+      message: "Veza uspješno kreirana",
+      data: uc,
+    });
   } catch (err) {
-    res.status(400).json({ ok: false, error: err.message });
+    res.status(500).json({ ok: false, error: err.message });
   }
 }
 
-// Lista svih kontakata jednog user-a
+// 📋 Lista svih kontakata jednog user-a
 export async function getUserContacts(req, res) {
   try {
     const list = await UserContact.findAll({
@@ -50,45 +52,50 @@ export async function getUserContacts(req, res) {
         },
       ],
     });
-    res.json({ ok: true, contacts: list });
+
+    res.json({ ok: true, data: list });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
 }
 
-// Update (npr. favorite)
+// ✏️ Update veze (npr. favorite)
 export async function updateUserContact(req, res) {
   try {
     const uc = await UserContact.findByPk(req.params.id);
-    if (!uc) return res.status(404).json({ ok: false, error: "Not found" });
+    if (!uc) return res.status(404).json({ ok: false, error: "Veza nije pronađena" });
 
     await uc.update(req.body);
-    res.json({ ok: true, userContact: uc });
+    res.json({
+      ok: true,
+      message: "Veza ažurirana",
+      data: uc,
+    });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
 }
 
-// Brisanje
+// ❌ Brisanje veze
 export async function deleteUserContact(req, res) {
   try {
     const uc = await UserContact.findByPk(req.params.id);
-    if (!uc) return res.status(404).json({ ok: false, error: "Not found" });
+    if (!uc) return res.status(404).json({ ok: false, error: "Veza nije pronađena" });
 
     await uc.destroy();
-    res.json({ ok: true });
+    res.json({ ok: true, message: "Veza obrisana" });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
 }
 
-// Pretraga kontakata jednog user-a (po imenu, emailu ili broju)
+// 🔍 Pretraga kontakata jednog user-a
 export async function searchUserContacts(req, res) {
   try {
     const { userId } = req.params;
     const { q } = req.query;
 
-    if (!q) return res.json({ ok: true, contacts: [] });
+    if (!q) return res.json({ ok: true, data: [] });
 
     const list = await UserContact.findAll({
       where: { userId },
@@ -105,12 +112,12 @@ export async function searchUserContacts(req, res) {
               { phone: { [Op.iLike]: `%${q}%` } },
             ],
           },
-          required: false, // da se vrate i fallback kontakti (ako je user obrisan)
+          required: false,
         },
       ],
     });
 
-    res.json({ ok: true, contacts: list });
+    res.json({ ok: true, data: list });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }

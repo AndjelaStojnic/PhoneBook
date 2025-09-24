@@ -1,9 +1,10 @@
 // backend/models/User.js
-// User model - osnovne informacije o korisniku
-
 import { DataTypes } from "sequelize";
 import { sequelize } from "../config/db.js";
 
+/* =====================
+   User Model
+===================== */
 export const User = sequelize.define(
   "User",
   {
@@ -26,21 +27,19 @@ export const User = sequelize.define(
       allowNull: false,
     },
     phone: {
-      type: DataTypes.STRING(50), // broj telefona
+      type: DataTypes.STRING(50),
       allowNull: true,
     },
     countryId: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      references: { model: "countries", key: "countryId" },
     },
     cityId: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      references: { model: "cities", key: "cityId" },
     },
     password: {
-      type: DataTypes.STRING(255), // hash (trenutno SHA1)
+      type: DataTypes.STRING(255), // bcrypt hash
       allowNull: false,
     },
     active: {

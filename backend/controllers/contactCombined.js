@@ -1,15 +1,15 @@
+// backend/controllers/searchAllContacts.js
 import { Op } from "sequelize";
 import { UserContact } from "../models/UserContact.js";
 import { Contact } from "../models/Contact.js";
 import { User } from "../models/User.js";
 
-// Kombinovani search (userContacts + manual contacts)
+// 🔍 Kombinovana pretraga (userContacts + ručni kontakti)
 export async function searchAllContacts(req, res) {
   try {
     const { userId } = req.params;
-    const { q } = req.query; // tekst koji korisnik kuca
+    const { q } = req.query;
 
-    // uslov pretrage (ako q postoji)
     const whereSearch = q
       ? {
           [Op.or]: [
@@ -83,14 +83,13 @@ export async function searchAllContacts(req, res) {
     // 3️⃣ Spojeno
     const allContacts = [...formattedUserContacts, ...formattedManualContacts];
 
-    // sortiraj po favorite pa po createdAt
     allContacts.sort((a, b) => {
       if (a.favorite && !b.favorite) return -1;
       if (!a.favorite && b.favorite) return 1;
       return new Date(b.createdAt) - new Date(a.createdAt);
     });
 
-    res.json({ ok: true, contacts: allContacts });
+    res.json({ ok: true, data: allContacts });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }

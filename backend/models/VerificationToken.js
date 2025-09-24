@@ -2,6 +2,10 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from "../config/db.js";
 
+/* =====================
+   VerificationToken Model
+   (za verifikaciju emaila i promjene podataka)
+===================== */
 export const VerificationToken = sequelize.define(
   "VerificationToken",
   {

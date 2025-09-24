@@ -1,30 +1,28 @@
+// backend/controllers/call.js
 import { Call } from "../models/Call.js";
 import { User } from "../models/User.js";
 import { Contact } from "../models/Contact.js";
 import { Op } from "sequelize";
 
-// Dodaj poziv (uvek missed, automatski određuje kome ide)
+// ➕ Dodaj poziv (uvek missed)
 export async function createCall(req, res) {
   try {
     const { callerId, phone } = req.body;
-
     if (!callerId || !phone) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Missing callerId or phone" });
+      return res.status(400).json({ ok: false, error: "callerId i phone su obavezni" });
     }
 
     let calledUserId = null;
     let calledContactId = null;
     let calledPhone = phone;
 
-    // 1️⃣ da li postoji user sa tim brojem?
+    // Da li postoji user sa tim brojem?
     const user = await User.findOne({ where: { phone } });
     if (user) {
       calledUserId = user.userId;
       calledPhone = null;
     } else {
-      // 2️⃣ da li postoji ručni kontakt sa tim brojem?
+      // Da li postoji ručni kontakt?
       const contact = await Contact.findOne({ where: { phone } });
       if (contact) {
         calledContactId = contact.contactId;
@@ -32,7 +30,7 @@ export async function createCall(req, res) {
       }
     }
 
-    // 3️⃣ upis u bazu
+    // Upis u bazu
     const call = await Call.create({
       callerId,
       calledUserId,
@@ -41,13 +39,17 @@ export async function createCall(req, res) {
       status: "missed",
     });
 
-    res.status(201).json({ ok: true, call });
+    res.status(201).json({
+      ok: true,
+      message: "Poziv zabilježen",
+      data: call,
+    });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
 }
 
-// Lista poziva za korisnika
+// 📞 Lista poziva za korisnika
 export async function getUserCalls(req, res) {
   try {
     const { userId } = req.params;
@@ -74,17 +76,12 @@ export async function getUserCalls(req, res) {
       order: [["createdAt", "DESC"]],
     });
 
-    // mapiramo u lep format
+    // Formatiranje izlaza
     const formatted = calls.map((c) => {
       let to = null;
-
-      if (c.calledUser) {
-        to = { type: "user", user: c.calledUser };
-      } else if (c.calledContact) {
-        to = { type: "contact", contact: c.calledContact };
-      } else if (c.calledPhone) {
-        to = { type: "phone", number: c.calledPhone };
-      }
+      if (c.calledUser) to = { type: "user", user: c.calledUser };
+      else if (c.calledContact) to = { type: "contact", contact: c.calledContact };
+      else if (c.calledPhone) to = { type: "phone", number: c.calledPhone };
 
       return {
         callId: c.callId,
@@ -95,30 +92,32 @@ export async function getUserCalls(req, res) {
       };
     });
 
-    res.json({ ok: true, calls: formatted });
+    res.json({ ok: true, data: formatted });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
 }
 
-// Brisanje poziva
+// ❌ Brisanje poziva
 export async function deleteCall(req, res) {
   try {
     const call = await Call.findByPk(req.params.id);
-    if (!call) return res.status(404).json({ ok: false, error: "Not found" });
+    if (!call) {
+      return res.status(404).json({ ok: false, error: "Poziv nije pronađen" });
+    }
 
     await call.destroy();
-    res.json({ ok: true });
+    res.json({ ok: true, message: "Poziv obrisan" });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
 }
 
-// Pretrazivanje kontakta
+// 🔍 Pretraga poziva
 export async function searchCalls(req, res) {
   try {
     const { q } = req.query;
-    if (!q) return res.json({ ok: true, calls: [] });
+    if (!q) return res.json({ ok: true, data: [] });
 
     const calls = await Call.findAll({
       include: [
@@ -126,14 +125,12 @@ export async function searchCalls(req, res) {
         { model: Contact, as: "calledContact", attributes: ["fullName", "phone"] },
       ],
       where: {
-        [Op.or]: [
-          { calledPhone: { [Op.iLike]: `%${q}%` } },
-        ],
+        [Op.or]: [{ calledPhone: { [Op.iLike]: `%${q}%` } }],
       },
       order: [["createdAt", "DESC"]],
     });
 
-    // dodatno filtriraj po user/contact ako treba
+    // Filtriranje po imenu, prezimenu ili broju
     const filtered = calls.filter(
       (c) =>
         (c.calledUser &&
@@ -145,7 +142,7 @@ export async function searchCalls(req, res) {
         (c.calledPhone && c.calledPhone.includes(q))
     );
 
-    res.json({ ok: true, calls: filtered });
+    res.json({ ok: true, data: filtered });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }

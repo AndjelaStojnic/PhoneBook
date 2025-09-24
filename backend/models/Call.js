@@ -1,9 +1,10 @@
 // backend/models/Call.js
 import { DataTypes } from "sequelize";
 import { sequelize } from "../config/db.js";
-import { User } from "./User.js";
-import { Contact } from "./Contact.js";
 
+/* =====================
+   Call Model
+===================== */
 export const Call = sequelize.define(
   "Call",
   {
@@ -12,21 +13,21 @@ export const Call = sequelize.define(
       primaryKey: true,
       autoIncrement: true,
     },
-    calledPhone: {
-      type: DataTypes.STRING(50),
-      allowNull: true, // slobodan broj, ako nije user/contact
-    },
     callerId: {
       type: DataTypes.BIGINT,
-      allowNull: false, // user koji zove
+      allowNull: false, // user koji poziva
     },
     calledUserId: {
       type: DataTypes.BIGINT,
-      allowNull: true, // ako zove registrovanog usera
+      allowNull: true, // pozvani registrovani korisnik
     },
     calledContactId: {
       type: DataTypes.BIGINT,
-      allowNull: true, // ako zove ručni kontakt
+      allowNull: true, // pozvani ručni kontakt
+    },
+    calledPhone: {
+      type: DataTypes.STRING(50),
+      allowNull: true, // slobodan broj (ako nije user/contact)
     },
     status: {
       type: DataTypes.ENUM("missed", "outgoing", "incoming"),
@@ -42,8 +43,3 @@ export const Call = sequelize.define(
     timestamps: false,
   }
 );
-
-// ✅ Asocijacije sa unikatnim aliasima
-Call.belongsTo(User, { as: "callerUser", foreignKey: "callerId" });
-Call.belongsTo(User, { as: "calledUser", foreignKey: "calledUserId" });
-Call.belongsTo(Contact, { as: "calledContact", foreignKey: "calledContactId" });

@@ -9,17 +9,15 @@ import {
 
 const r = Router();
 
-// Dodaj kontakt
+/* =====================
+   Contact Routes
+===================== */
 r.post("/", createContact);
 
-// Svi kontakti jednog user-a
 r.get("/user/:userId", getUserContacts);
 r.get("/user/:userId/search", searchContacts);
 
-// Update
 r.put("/:id", updateContact);
-
-// Brisanje
 r.delete("/:id", deleteContact);
 
 export default r;

@@ -1,8 +1,8 @@
 import { Router } from "express";
-
 import {
   register,
   verify,
+  login,
   requestEmailChange,
   verifyNewEmail,
   list,
@@ -13,8 +13,13 @@ import {
 
 const r = Router();
 
+/* =====================
+   User Routes
+===================== */
 r.post("/register", register);
 r.get("/verify/:token", verify);
+
+r.post("/login", login);
 
 r.post("/change-email", requestEmailChange);
 r.get("/verify-email/:token", verifyNewEmail);

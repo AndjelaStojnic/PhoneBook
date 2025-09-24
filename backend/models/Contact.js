@@ -1,10 +1,11 @@
 // backend/models/Contact.js
-// Kontakti koje korisnik ručno dodaje (nisu nužno registrovani korisnici)
-
 import { DataTypes } from "sequelize";
 import { sequelize } from "../config/db.js";
-import { User } from "./User.js";
 
+/* =====================
+   Contact Model
+   (ručno dodati kontakti)
+===================== */
 export const Contact = sequelize.define(
   "Contact",
   {
@@ -37,10 +38,6 @@ export const Contact = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
-    createdAt: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW,
-    },
     nickname: {
       type: DataTypes.STRING(100),
       allowNull: true,
@@ -49,16 +46,13 @@ export const Contact = sequelize.define(
       type: DataTypes.STRING(500),
       allowNull: true,
     },
+    createdAt: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+    },
   },
   {
     tableName: "contacts",
     timestamps: false,
   }
 );
-
-// Veza sa korisnikom
-User.hasMany(Contact, {
-  foreignKey: "userId",
-  onDelete: "CASCADE", // briše sve kontakte ako user obriše nalog
-});
-Contact.belongsTo(User, { foreignKey: "userId" });

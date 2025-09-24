@@ -1,8 +1,10 @@
 // backend/models/City.js
 import { DataTypes } from "sequelize";
 import { sequelize } from "../config/db.js";
-import { Country } from "./Country.js";
 
+/* =====================
+   City Model
+===================== */
 export const City = sequelize.define(
   "City",
   {
@@ -15,17 +17,9 @@ export const City = sequelize.define(
       type: DataTypes.STRING(150),
       allowNull: false,
     },
-    population: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-    },
     countryId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: {
-        model: Country,
-        key: "countryId",
-      },
     },
   },
   {
@@ -33,7 +27,3 @@ export const City = sequelize.define(
     timestamps: false,
   }
 );
-
-// Veze
-Country.hasMany(City, { foreignKey: "countryId" });
-City.belongsTo(Country, { foreignKey: "countryId" });

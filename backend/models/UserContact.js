@@ -1,10 +1,11 @@
 // backend/models/UserContact.js
-// Veza između korisnika i drugih korisnika (friend list), ili fallback u ručni kontakt
-
 import { DataTypes } from "sequelize";
 import { sequelize } from "../config/db.js";
-import { User } from "./User.js";
 
+/* =====================
+   UserContact Model
+   (friend lista ili fallback u ručni kontakt)
+===================== */
 export const UserContact = sequelize.define(
   "UserContact",
   {
@@ -15,15 +16,15 @@ export const UserContact = sequelize.define(
     },
     userId: {
       type: DataTypes.BIGINT,
-      allowNull: false,
+      allowNull: false, // vlasnik liste
     },
     contactUserId: {
       type: DataTypes.BIGINT,
-      allowNull: true, // ako obriše nalog → postaje NULL
+      allowNull: true, // ako user obriše nalog → NULL
     },
     fullName: {
       type: DataTypes.STRING(150),
-      allowNull: true, // čuvamo ime da ostane i kad contactUserId nestane
+      allowNull: true, // čuvamo ime i ako user više ne postoji
     },
     phone: {
       type: DataTypes.STRING(50),
@@ -56,22 +57,8 @@ export const UserContact = sequelize.define(
     indexes: [
       {
         unique: true,
-        fields: ["userId", "contactUserId"],
+        fields: ["userId", "contactUserId"], // jedan kontakt ne može dva puta
       },
     ],
   }
 );
-
-// 🔹 Veza sa vlasnikom kontakta (userId)
-User.hasMany(UserContact, {
-  foreignKey: "userId",
-  onDelete: "CASCADE",
-});
-UserContact.belongsTo(User, { as: "owner", foreignKey: "userId" });
-
-// 🔹 Veza prema kontakt korisniku (contactUserId)
-User.hasMany(UserContact, {
-  foreignKey: "contactUserId",
-  onDelete: "SET NULL",
-});
-UserContact.belongsTo(User, { as: "contact", foreignKey: "contactUserId" });

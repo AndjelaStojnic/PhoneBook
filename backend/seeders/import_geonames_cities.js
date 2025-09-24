@@ -48,11 +48,10 @@ async function importCities() {
       const countryId = countryMap.get(countryCode);
       if (!countryId) continue;
 
-      // samo gradove sa >0 populacije
+      // samo gradove sa > 0 populacije
       if (population && population > 0) {
         cities.push({
           name,
-          population,
           countryId,
         });
       }

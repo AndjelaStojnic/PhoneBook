@@ -2,6 +2,9 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from "../config/db.js";
 
+/* =====================
+   Country Model
+===================== */
 export const Country = sequelize.define(
   "Country",
   {
@@ -19,7 +22,7 @@ export const Country = sequelize.define(
       allowNull: false,
     },
     iso2: {
-      type: DataTypes.STRING(2),
+      type: DataTypes.STRING(2), // ISO 3166-1 alpha-2
       allowNull: false,
     },
   },

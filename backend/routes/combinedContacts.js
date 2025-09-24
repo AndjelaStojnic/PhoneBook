@@ -3,7 +3,9 @@ import { searchAllContacts } from "../controllers/contactCombined.js";
 
 const r = Router();
 
-// kombinovani search ili lista
+/* =====================
+   Combined Contacts Routes
+===================== */
 r.get("/user/:userId/all", searchAllContacts);
 
 export default r;

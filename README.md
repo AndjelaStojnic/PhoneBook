@@ -37,6 +37,9 @@ DB_USER=YOUR_USERNAME    # ← your Postgres username
 DB_PASS=YOUR_PASSWORD    # ← your Postgres password
 DB_HOST=localhost
 DB_PORT=5432
+
+# JWT secret key (used for signing tokens)
+JWT_SECRET=someVeryLongRandomSecretKey123!@#
 ```
 
 ⚠️ Adjust values according to your **local PostgreSQL setup**.
@@ -109,11 +112,13 @@ Key backend dependencies:
 - **cors** — cross-origin support  
 - **http-errors** — error handling  
 - **nodemailer** — email support  
+- **bcrypt** — password hashing
+- **jsonwebtoken** — JWT authentication
 - **fs**, **path**, **url** — Node.js core modules  
 
 Install them (if missing):
 ```bash
-npm install dotenv sequelize pg pg-hstore express cors http-errors nodemailer
+npm install dotenv sequelize pg pg-hstore express cors http-errors nodemailer bcrypt jsonwebtoken
 ```
 
 ---
