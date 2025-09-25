@@ -9,7 +9,9 @@ export async function createCall(req, res) {
   try {
     const { callerId, phone } = req.body;
     if (!callerId || !phone) {
-      return res.status(400).json({ ok: false, error: "callerId i phone su obavezni" });
+      return res
+        .status(400)
+        .json({ ok: false, error: "callerId i phone su obavezni" });
     }
 
     let calledUserId = null;
@@ -55,7 +57,9 @@ export async function getUserCalls(req, res) {
     const { userId } = req.params;
 
     const calls = await Call.findAll({
-      where: { callerId: userId },
+      where: {
+        [Op.or]: [{ callerId: userId }, { calledUserId: userId }],
+      },
       include: [
         {
           model: User,
@@ -98,15 +102,18 @@ export async function getUserCalls(req, res) {
   }
 }
 
-// ❌ Brisanje poziva
+// ❌ Hard delete poziva
 export async function deleteCall(req, res) {
   try {
     const call = await Call.findByPk(req.params.id);
     if (!call) {
-      return res.status(404).json({ ok: false, error: "Poziv nije pronađen" });
+      return res
+        .status(404)
+        .json({ ok: false, error: "Poziv nije pronađen" });
     }
 
-    await call.destroy();
+    await call.destroy(); // sada brišemo trajno
+
     res.json({ ok: true, message: "Poziv obrisan" });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
@@ -120,13 +127,21 @@ export async function searchCalls(req, res) {
     if (!q) return res.json({ ok: true, data: [] });
 
     const calls = await Call.findAll({
-      include: [
-        { model: User, as: "calledUser", attributes: ["firstName", "lastName", "phone"] },
-        { model: Contact, as: "calledContact", attributes: ["fullName", "phone"] },
-      ],
       where: {
         [Op.or]: [{ calledPhone: { [Op.iLike]: `%${q}%` } }],
       },
+      include: [
+        {
+          model: User,
+          as: "calledUser",
+          attributes: ["firstName", "lastName", "phone"],
+        },
+        {
+          model: Contact,
+          as: "calledContact",
+          attributes: ["fullName", "phone"],
+        },
+      ],
       order: [["createdAt", "DESC"]],
     });
 
@@ -134,10 +149,14 @@ export async function searchCalls(req, res) {
     const filtered = calls.filter(
       (c) =>
         (c.calledUser &&
-          (`${c.calledUser.firstName} ${c.calledUser.lastName}`.toLowerCase().includes(q.toLowerCase()) ||
+          (`${c.calledUser.firstName} ${c.calledUser.lastName}`
+            .toLowerCase()
+            .includes(q.toLowerCase()) ||
             c.calledUser.phone.includes(q))) ||
         (c.calledContact &&
-          (c.calledContact.fullName.toLowerCase().includes(q.toLowerCase()) ||
+          (c.calledContact.fullName
+            .toLowerCase()
+            .includes(q.toLowerCase()) ||
             c.calledContact.phone.includes(q))) ||
         (c.calledPhone && c.calledPhone.includes(q))
     );

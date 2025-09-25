@@ -6,6 +6,7 @@ import contacts from "./contacts.js";
 import userContacts from "./userContacts.js";
 import calls from "./calls.js";
 import combinedContacts from "./combinedContacts.js";
+import countries from "./countries.js";
 
 const r = Router();
 
@@ -26,6 +27,7 @@ r.get("/db/ping", async (_req, res) => {
 /* =====================
    API Modules
 ===================== */
+r.use("/countries", countries);
 r.use("/users", users);
 r.use("/contacts", contacts);
 r.use("/user-contacts", userContacts);

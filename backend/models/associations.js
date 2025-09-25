@@ -7,21 +7,21 @@ import { Country } from "./Country.js";
 import { City } from "./City.js";
 
 /* =====================
-   User ↔ Contact
+   User ↔ Contact (manualni kontakti)
 ===================== */
 User.hasMany(Contact, { foreignKey: "userId", onDelete: "CASCADE" });
 Contact.belongsTo(User, { foreignKey: "userId" });
 
 /* =====================
-   User ↔ UserContact
+   User ↔ UserContact (link između korisnika)
 ===================== */
-// lista kontakata korisnika
+// vlasnik liste kontakata
 User.hasMany(UserContact, { foreignKey: "userId", onDelete: "CASCADE" });
 UserContact.belongsTo(User, { foreignKey: "userId" });
 
-// veza na drugog korisnika (friend link)
+// povezani korisnik (ono što frontend vidi kao "contact")
 User.hasMany(UserContact, { foreignKey: "contactUserId", onDelete: "SET NULL" });
-UserContact.belongsTo(User, { foreignKey: "contactUserId" });
+UserContact.belongsTo(User, { as: "contact", foreignKey: "contactUserId" });
 
 /* =====================
    User ↔ Country / City
@@ -39,7 +39,7 @@ City.belongsTo(Country, { foreignKey: "countryId" });
    Calls
 ===================== */
 User.hasMany(Call, { foreignKey: "callerId", onDelete: "CASCADE" });
-Call.belongsTo(User, { foreignKey: "callerId", as: "caller" });
+Call.belongsTo(User, { foreignKey: "callerId", as: "callerUser" });
 
 User.hasMany(Call, { foreignKey: "calledUserId", onDelete: "SET NULL" });
 Call.belongsTo(User, { foreignKey: "calledUserId", as: "calledUser" });
