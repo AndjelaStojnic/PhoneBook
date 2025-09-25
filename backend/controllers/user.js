@@ -66,18 +66,19 @@ export async function register(req, res) {
 export async function verify(req, res) {
   try {
     const v = await VerificationToken.findOne({ where: { token: req.params.token } });
-    if (!v) return res.status(400).json({ ok: false, error: "Neispravan token" });
+    if (!v) return res.redirect("http://localhost:5173/register-failed"); // nova stranica za fail
 
     const user = await User.findByPk(v.userId);
-    if (!user) return res.status(404).json({ ok: false, error: "Korisnik ne postoji" });
+    if (!user) return res.redirect("http://localhost:5173/register-failed");
 
     user.active = true;
     await user.save();
     await v.destroy();
 
-    res.json({ ok: true, message: "Nalog verifikovan" });
+    // redirect na frontend success page
+    return res.redirect("http://localhost:5173/register-verified");
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
+    return res.redirect("http://localhost:5173/register-failed");
   }
 }
 
