@@ -58,38 +58,31 @@ export async function getUserCalls(req, res) {
 
     const calls = await Call.findAll({
       where: {
-        [Op.or]: [{ callerId: userId }, { calledUserId: userId }],
+        [Op.or]: [
+          { callerId: userId, deletedByCaller: false },
+          { calledUserId: userId, deletedByCalled: false },
+        ],
       },
       include: [
-        {
-          model: User,
-          as: "calledUser",
-          attributes: ["userId", "firstName", "lastName", "email", "phone"],
-        },
-        {
-          model: Contact,
-          as: "calledContact",
-          attributes: ["contactId", "fullName", "phone", "email"],
-        },
-        {
-          model: User,
-          as: "callerUser",
-          attributes: ["userId", "firstName", "lastName", "email", "phone"],
-        },
+        { model: User, as: "calledUser", attributes: ["userId", "firstName", "lastName", "phone"] },
+        { model: Contact, as: "calledContact", attributes: ["contactId", "fullName", "phone"] },
+        { model: User, as: "callerUser", attributes: ["userId", "firstName", "lastName", "phone"] },
       ],
       order: [["createdAt", "DESC"]],
     });
 
-    // Formatiranje izlaza
     const formatted = calls.map((c) => {
       let to = null;
       if (c.calledUser) to = { type: "user", user: c.calledUser };
       else if (c.calledContact) to = { type: "contact", contact: c.calledContact };
       else if (c.calledPhone) to = { type: "phone", number: c.calledPhone };
 
+      // 👇 ovdje je magija
+      const direction = c.callerId == userId ? "outgoing" : "incoming";
+
       return {
         callId: c.callId,
-        status: c.status,
+        status: `${direction}_${c.status}`, // npr "outgoing_missed"
         createdAt: c.createdAt,
         from: c.callerUser,
         to,
@@ -103,7 +96,7 @@ export async function getUserCalls(req, res) {
 }
 
 // ❌ Hard delete poziva
-export async function deleteCall(req, res) {
+export async function hardDeleteCall(req, res) {
   try {
     const call = await Call.findByPk(req.params.id);
     if (!call) {
@@ -120,6 +113,30 @@ export async function deleteCall(req, res) {
   }
 }
 
+export async function deleteCall(req, res) {
+  try {
+    const { id, userId } = req.params; // 👈 više nije iz body nego iz params
+    const call = await Call.findByPk(id);
+
+    if (!call) {
+      return res.status(404).json({ ok: false, error: "Poziv nije pronađen" });
+    }
+
+    if (call.callerId == userId) {
+      call.deletedByCaller = true;
+    } else if (call.calledUserId == userId) {
+      call.deletedByCalled = true;
+    } else {
+      return res.status(403).json({ ok: false, error: "Nemaš pravo brisanja ovog poziva" });
+    }
+
+    await call.save();
+    res.json({ ok: true, message: "Poziv obrisan za ovog korisnika" });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+}
+
 // 🔍 Pretraga poziva
 export async function searchCalls(req, res) {
   try {
@@ -128,40 +145,22 @@ export async function searchCalls(req, res) {
 
     const calls = await Call.findAll({
       where: {
-        [Op.or]: [{ calledPhone: { [Op.iLike]: `%${q}%` } }],
+        [Op.or]: [
+          { calledPhone: { [Op.iLike]: `%${q}%` } },
+          { "$calledUser.phone$": { [Op.iLike]: `%${q}%` } },
+          { "$calledContact.phone$": { [Op.iLike]: `%${q}%` } },
+          { "$caller.phone$": { [Op.iLike]: `%${q}%` } },
+        ],
       },
       include: [
-        {
-          model: User,
-          as: "calledUser",
-          attributes: ["firstName", "lastName", "phone"],
-        },
-        {
-          model: Contact,
-          as: "calledContact",
-          attributes: ["fullName", "phone"],
-        },
+        { model: User, as: "caller", attributes: ["firstName", "lastName", "phone"] },
+        { model: User, as: "calledUser", attributes: ["firstName", "lastName", "phone"] },
+        { model: Contact, as: "calledContact", attributes: ["fullName", "phone"] },
       ],
       order: [["createdAt", "DESC"]],
     });
 
-    // Filtriranje po imenu, prezimenu ili broju
-    const filtered = calls.filter(
-      (c) =>
-        (c.calledUser &&
-          (`${c.calledUser.firstName} ${c.calledUser.lastName}`
-            .toLowerCase()
-            .includes(q.toLowerCase()) ||
-            c.calledUser.phone.includes(q))) ||
-        (c.calledContact &&
-          (c.calledContact.fullName
-            .toLowerCase()
-            .includes(q.toLowerCase()) ||
-            c.calledContact.phone.includes(q))) ||
-        (c.calledPhone && c.calledPhone.includes(q))
-    );
-
-    res.json({ ok: true, data: filtered });
+    res.json({ ok: true, data: calls });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }

@@ -10,7 +10,10 @@
 
 A **full-stack Node.js + PostgreSQL + React** application for managing contacts and importing Geonames city data.
 
----
+📌 Requirements:
+- Node.js >= 18
+- npm >= 9
+- PostgreSQL >= 14
 
 ## 🚀 1. Clone the repository
 ```bash
@@ -34,7 +37,7 @@ npm install
 cd ..
 
 # in frontend folder (server dependencies)
-cd ../frontend
+cd frontend
 npm install
 cd ..
 
@@ -66,12 +69,17 @@ Start PostgreSQL and create the database:
 CREATE DATABASE phonebook;
 ```
 
-Run migrations (if using Sequelize migrations):
+## 🌱 (Optional) Seed test data
+
+You can load predefined test users, contacts, calls, countries and cities:
 
 ```bash
-cd backend
-npm run migrate
+psql -U postgres -d phonebook -f backend/model/migrations/phonebook.sql;
 ```
+Option 2: copy-paste full content of phonebook.sql into pgAdmin Query Tool and execute
+
+Test account: andjelastojnic1607+testing@gmail.com
+Password: test123
 
 ---
 

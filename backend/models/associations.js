@@ -31,7 +31,7 @@ User.belongsTo(City, { foreignKey: "cityId" });
 
 Country.hasMany(User, { foreignKey: "countryId" });
 City.hasMany(User, { foreignKey: "cityId" });
-
+   
 Country.hasMany(City, { foreignKey: "countryId" });
 City.belongsTo(Country, { foreignKey: "countryId" });
 

@@ -7,5 +7,6 @@ export const callsApi = {
   listByUser: (userId) => apiFetch(`${BASE}/user/${userId}`),
   search: (userId, q) =>
     apiFetch(`${BASE}/user/${userId}/search?q=${encodeURIComponent(q)}`),
-  remove: (id) => apiFetch(`${BASE}/${id}/delete`, { method: "PUT" }), // soft delete
+  remove: (id, userId) => apiFetch(`${BASE}/${id}/${userId}`, { method: "DELETE" }),
+
 };

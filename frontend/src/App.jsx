@@ -8,6 +8,8 @@ import RegisterSuccess from "./pages/RegisterSuccess.jsx";
 import RegisterVerified from "./pages/RegisterVerified.jsx";
 import RegisterFailed from "./pages/RegisterFailed.jsx";
 import LearnMore from "./pages/LearnMore.jsx";
+import EmailChangeSuccess from "./pages/EmailChangeSuccess.jsx";
+import EmailChangeFailed from "./pages/EmailChangeFailed.jsx";
 
 
 function Home() {
@@ -138,6 +140,8 @@ export default function App() {
             <Route path="/register-verified" element={<RegisterVerified />} />
             <Route path="/register-failed" element={<RegisterFailed />} />
             <Route path="/learn-more" element={<LearnMore />} />
+            <Route path="/email-change-success" element={<EmailChangeSuccess />} />
+            <Route path="/email-change-failed" element={<EmailChangeFailed />} />
           </Routes>
         </div>
       </BrowserRouter>

@@ -1,3 +1,4 @@
+// routes/users.js
 import { Router } from "express";
 import {
   register,
@@ -9,24 +10,26 @@ import {
   get,
   update,
   remove,
+  changePassword,   // 👈 dodaj import
 } from "../controllers/user.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const r = Router();
 
-/* =====================
-   User Routes
-===================== */
+// javni endpoint-i
 r.post("/register", register);
-r.get("/verify/:token", verify);
-
 r.post("/login", login);
-
+r.get("/verify/:token", verify);
 r.post("/change-email", requestEmailChange);
 r.get("/verify-email/:token", verifyNewEmail);
 
-r.get("/", list);
-r.get("/:id", get);
-r.put("/:id", update);
-r.delete("/:id", remove);
+// privatni endpoint-i
+r.use(requireAuth);
+
+r.get("/", list);                           // svi useri zbog dodavanja novih kontakata
+r.get("/:id", get);                         // sam ili admin
+r.put("/:id", update);                      // sam ili admin
+r.delete("/:id", requireRole("admin"), remove); // samo admin
+r.post("/change-password", changePassword); // 👈 nova ruta za promjenu lozinke
 
 export default r;

@@ -30,8 +30,16 @@ export const Call = sequelize.define(
       allowNull: true, // slobodan broj (ako nije user/contact)
     },
     status: {
-      type: DataTypes.ENUM("missed", "outgoing", "incoming"),
-      defaultValue: "missed",
+      type: DataTypes.ENUM("missed", "accepted"),
+      allowNull: false,
+    },
+    deletedByCaller: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    deletedByCalled: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
     },
     createdAt: {
       type: DataTypes.DATE,

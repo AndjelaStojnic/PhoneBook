@@ -52,6 +52,7 @@ export async function searchAllContacts(req, res) {
             userId: uc.contact.userId,
             firstName: uc.contact.firstName,
             lastName: uc.contact.lastName,
+            nickname: uc.nickname, // 👈 OVO je pravo mjesto
             email: uc.contact.email,
             phone: uc.contact.phone,
           }
@@ -59,6 +60,7 @@ export async function searchAllContacts(req, res) {
             fullName: uc.fullName,
             email: uc.email,
             phone: uc.phone,
+            nickname: uc.nickname, // fallback ako user više ne postoji
           },
     }));
 
@@ -77,6 +79,7 @@ export async function searchAllContacts(req, res) {
         email: c.email,
         phone: c.phone,
         note: c.note,
+        nickname: c.nickname,
       },
     }));
 

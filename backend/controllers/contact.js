@@ -1,5 +1,7 @@
 // backend/controllers/contact.js
 import { Contact } from "../models/Contact.js";
+import { UserContact } from "../models/UserContact.js";
+import { User } from "../models/User.js";
 import { Op } from "sequelize";
 
 // ➕ Kreiraj novi kontakt
@@ -11,6 +13,61 @@ export async function createContact(req, res) {
       return res.status(400).json({ ok: false, error: "userId, fullName i phone su obavezni" });
     }
 
+    // 1️⃣ Provjera da li već postoji u manual contacts
+    const existingManual = await Contact.findOne({
+      where: {
+        userId,
+        [Op.or]: [
+          { phone },
+          ...(email ? [{ email }] : []),
+        ],
+      },
+    });
+    if (existingManual) {
+      return res.status(400).json({ ok: false, error: "Kontakt sa istim brojem ili emailom već postoji u tvojim kontaktima" });
+    }
+
+    // 2️⃣ Provjera da li broj/email postoji u USERS tabeli
+    const existingUser = await User.findOne({
+      where: {
+        [Op.or]: [
+          { phone },
+          ...(email ? [{ email }] : []),
+        ],
+      },
+    });
+
+    if (existingUser) {
+      // Provjeri da li već postoji UserContact veza
+      const existingLink = await UserContact.findOne({
+        where: {
+          userId,
+          contactUserId: existingUser.userId,
+        },
+      });
+
+      if (existingLink) {
+        return res.status(400).json({ ok: false, error: "Već imaš ovaj kontakt povezan sa korisnikom" });
+      }
+
+      // Ako nema veze → napravi UserContact automatski
+      const uc = await UserContact.create({
+        userId,
+        contactUserId: existingUser.userId,
+        fullName: `${existingUser.firstName} ${existingUser.lastName}`,
+        phone: existingUser.phone,
+        email: existingUser.email,
+        favorite: favorite || false,
+      });
+
+      return res.status(201).json({
+        ok: true,
+        message: "Kontakt povezan sa postojećim korisnikom",
+        data: { type: "userContact", ...uc.toJSON() },
+      });
+    }
+
+    // 3️⃣ Ako nije user → kreiraj ručni kontakt
     const contact = await Contact.create({
       userId,
       fullName,
@@ -23,7 +80,7 @@ export async function createContact(req, res) {
     res.status(201).json({
       ok: true,
       message: "Kontakt kreiran",
-      data: contact,
+      data: { type: "manualContact", ...contact.toJSON() },
     });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });

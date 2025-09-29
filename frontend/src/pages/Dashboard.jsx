@@ -12,6 +12,7 @@ const TABS = [
   { key: "contacts",  label: "Contacts",  icon: "👥" },
   { key: "keypad",    label: "Keypad",    icon: "🔢" },
   { key: "settings",  label: "Settings",  icon: "⚙️" },
+  { key: "users",     label: "Users",     icon: "🌍" },
 ];
 
 export default function Dashboard() {
@@ -31,11 +32,12 @@ export default function Dashboard() {
         {active === "contacts" && <ContactsTab user={user} />}
         {active === "keypad" && <KeypadTab />}
         {active === "settings" && <SettingsTab user={user} />}
+        {active === "users" && <UsersTab user={user} />}
       </div>
 
       {/* Bottom Tab Bar */}
       <nav className="sticky bottom-0 w-full bg-white border-t shadow-sm">
-        <div className="max-w-md mx-auto grid grid-cols-5">
+        <div className="max-w-md mx-auto grid grid-cols-6">
           {TABS.map(t => (
             <button
               key={t.key}
@@ -87,7 +89,7 @@ function FavoritesTab() {
   );
 
   return (
-    <div className="max-w-md mx-auto p-4">
+    <div className="max-w-3xl mx-auto px-6 py-4 w-full">
       <h2 className="text-2xl font-semibold mb-3">Favorites</h2>
 
       <div className="flex gap-2 mb-3">
@@ -116,16 +118,46 @@ function FavoritesTab() {
           {filtered.map((f) => (
             <li key={`${f.type}-${f.id}`} className="p-3 flex items-center justify-between">
               <div>
-                <div className="font-medium">
-                  {f.type === "userContact"
-                    ? `${f.contact?.firstName} ${f.contact?.lastName}`
-                    : f.contact?.fullName}
-                </div>
+                <div className="font-medium">{displayName(f.contact, f.type)}</div>
                 <div className="text-gray-500 text-sm">
                   {f.contact?.phone || f.contact?.email}
                 </div>
               </div>
-              <button className="text-blue-600 hover:underline">Call</button>
+              <div className="flex gap-3">
+                {/* Call */}
+                <button
+                  onClick={async () => {
+                    try {
+                      await callsApi.create({
+                        callerId: user.userId,
+                        phone: f.contact?.phone,
+                      });
+                      alert(`Poziv zabilježen: ${f.contact?.phone}`);
+                    } catch (err) {
+                      alert("Greška kod poziva: " + err.message);
+                    }
+                  }}
+                  className="text-green-600 hover:underline"
+                >
+                  Call
+                </button>
+
+                {/* Remove from favorites */}
+                <button
+                  onClick={async () => {
+                    try {
+                      await contactsApi.update({ ...f, favorite: false });
+                      // reload favorites
+                      await loadFavorites();
+                    } catch (err) {
+                      alert("Failed to remove favorite: " + err.message);
+                    }
+                  }}
+                  className="text-red-600 hover:underline"
+                >
+                  Remove
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -137,14 +169,14 @@ function FavoritesTab() {
           favorites={favorites}
           onClose={() => setShowPicker(false)}
           onPicked={async (contact) => {
-            try {
-              await contactsApi.update(contact.id, { favorite: true });
-              await loadFavorites();
-              setShowPicker(false);
-            } catch (err) {
-              alert("Failed to add favorite: " + err.message);
-            }
-          }}
+          try {
+            await contactsApi.update({ ...contact, favorite: true });
+            await loadFavorites();
+            setShowPicker(false);
+          } catch (err) {
+            alert("Failed to add favorite: " + err.message);
+          }
+        }}
         />
       )}
     </div>
@@ -199,11 +231,7 @@ function ContactPickerModal({ userId, favorites, onClose, onPicked }) {
                 className="p-3 hover:bg-gray-50 cursor-pointer"
                 onClick={() => onPicked(c)}
               >
-                <div className="font-medium">
-                  {c.type === "userContact"
-                    ? `${c.contact?.firstName} ${c.contact?.lastName}`
-                    : c.contact?.fullName}
-                </div>
+                <div className="font-medium">{displayName(c.contact, c.type)}</div>
                 <div className="text-sm text-gray-500">
                   {c.contact?.phone || c.contact?.email}
                 </div>
@@ -266,23 +294,44 @@ function RecentsTab() {
 
   const filtered = useMemo(() => {
     return calls
-      .filter((c) => (filter === "missed" ? c.status === "missed" : true))
       .filter((c) => {
-        const displayName =
+        if (filter === "missed") {
+          // prikazuj samo incoming missed
+          return c.status === "incoming_missed";
+        }
+        return true;
+      })
+      .filter((c) => {
+        const target =
           c.to?.type === "user"
-            ? `${c.to?.user?.firstName || ""} ${c.to?.user?.lastName || ""}`.trim()
+            ? c.to.user
             : c.to?.type === "contact"
-            ? c.to?.contact?.fullName || ""
-            : c.to?.number || "";
+            ? c.to.contact
+            : null;
 
-        return q
-          ? displayName.toLowerCase().includes(q.toLowerCase())
-          : true;
+        const name = displayName(target, c.to?.type);
+        return q ? name.toLowerCase().includes(q.toLowerCase()) : true;
       });
   }, [calls, q, filter]);
 
+  // 🎨 helper za stil
+  function statusClasses(status) {
+    switch (status) {
+      case "incoming_missed":
+        return { row: "bg-red-50", text: "text-red-600" };
+      case "outgoing_missed":
+        return { row: "bg-orange-50", text: "text-orange-600" };
+      case "incoming_accepted":
+        return { row: "bg-green-50", text: "text-green-600" };
+      case "outgoing_accepted":
+        return { row: "bg-blue-50", text: "text-blue-600" };
+      default:
+        return { row: "", text: "" };
+    }
+  }
+
   return (
-    <div className="max-w-md mx-auto p-4">
+    <div className="max-w-3xl mx-auto px-6 py-4 w-full">
       <h2 className="text-2xl font-semibold mb-3">Recents</h2>
 
       {/* Filter i search */}
@@ -291,7 +340,10 @@ function RecentsTab() {
           <TabPill active={filter === "all"} onClick={() => setFilter("all")}>
             All
           </TabPill>
-          <TabPill active={filter === "missed"} onClick={() => setFilter("missed")}>
+          <TabPill
+            active={filter === "missed"}
+            onClick={() => setFilter("missed")}
+          >
             Missed
           </TabPill>
         </div>
@@ -315,37 +367,68 @@ function RecentsTab() {
       ) : (
         <ul className="divide-y rounded-lg border bg-white">
           {filtered.map((c) => {
-            const isOutgoing = c.from?.userId === user.userId;
+          let target = null;
+          let name = "Unknown";
+          let phone = "";
 
-            // Ime i broj
-            let displayName = "";
+          // outgoing → gledamo TO
+          if (c.status.startsWith("outgoing")) {
             if (c.to?.type === "user") {
-              const name = `${c.to?.user?.firstName || ""} ${c.to?.user?.lastName || ""}`.trim();
-              displayName = name ? `${name} (${c.to?.user?.phone || ""})` : c.to?.user?.phone || "Unknown";
+              target = c.to.user;
+              phone = c.to.user?.phone;
             } else if (c.to?.type === "contact") {
-              const name = c.to?.contact?.fullName || "";
-              displayName = name ? `${name} (${c.to?.contact?.phone || ""})` : c.to?.contact?.phone || "Unknown";
+              target = c.to.contact;
+              phone = c.to.contact?.phone;
             } else {
-              displayName = c.to?.number || "Unknown";
+              phone = c.to?.number || "";
             }
+          }
+
+          // incoming → gledamo FROM
+          else if (c.status.startsWith("incoming")) {
+            target = c.from;
+            phone = c.from?.phone || "";
+          }
+
+          name = displayName(target, c.to?.type || "userContact");
+          if (phone) name += ` (${phone})`;
+
+          const cls = statusClasses(c.status);
 
             return (
               <li
                 key={c.callId}
-                className="p-3 flex items-center justify-between"
+                className={`p-3 flex items-center justify-between ${cls.row}`}
               >
                 <div>
-                  <div className="font-medium">
-                    {isOutgoing ? "→ " : "← "}
-                    {displayName}
+                  <div className={`font-medium ${cls.text}`}>
+                    {c.status.startsWith("outgoing") ? "→ " : "← "}
+                    {name}
                   </div>
                   <div className="text-sm text-gray-500">
                     {c.status} • {new Date(c.createdAt).toLocaleString()}
                   </div>
                 </div>
-                <button className="text-blue-600 hover:underline">
-                  Details
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      console.log("Details still in progress…", c);
+                      alert("Details feature is still in progress 🚧");
+                    }}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Details
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await callsApi.remove(c.callId, user.userId);
+                      setCalls(calls.filter((x) => x.callId !== c.callId));
+                    }}
+                    className="text-red-600 hover:underline"
+                  >
+                    Delete
+                  </button>
+                </div>
               </li>
             );
           })}
@@ -361,6 +444,7 @@ function ContactsTab({ user }) {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [editingContact, setEditingContact] = useState(null);
 
   useEffect(() => {
     if (!user) return;
@@ -375,7 +459,7 @@ function ContactsTab({ user }) {
       setContacts(res.data || []);
     } catch (err) {
       console.error("Failed to load contacts:", err.message);
-    } finally {
+    } finally { 
       setLoading(false);
     }
   }
@@ -390,7 +474,7 @@ function ContactsTab({ user }) {
   }, [contacts, q]);
 
   return (
-    <div className="max-w-md mx-auto p-4">
+    <div className="max-w-3xl mx-auto px-6 py-4 w-full">
       <h2 className="text-2xl font-semibold mb-3">Contacts</h2>
 
       {/* My Info */}
@@ -428,11 +512,7 @@ function ContactsTab({ user }) {
           {filtered.map((c) => (
             <li key={`${c.type}-${c.id}`} className="p-3 flex items-center justify-between">
               <div>
-                <div className="font-medium">
-                  {c.type === "userContact"
-                    ? `${c.contact?.firstName} ${c.contact?.lastName}`
-                    : c.contact?.fullName}
-                </div>
+                <div className="font-medium">{displayName(c.contact, c.type)}</div>
                 <div className="text-sm text-gray-500">
                   {c.contact?.phone || c.contact?.email}
                 </div>
@@ -440,15 +520,39 @@ function ContactsTab({ user }) {
                   <div className="text-yellow-500 text-xs">★ Favorite</div>
                 )}
               </div>
+              <div className="flex gap-2">
               <button
                 onClick={async () => {
-                  await contactsApi.remove(c.id);
+                  try {
+                    await callsApi.create({
+                      callerId: user.userId,
+                      phone: c.contact?.phone,
+                    });
+                    alert(`Poziv zabilježen: ${c.contact?.phone}`);
+                  } catch (err) {
+                    alert("Greška kod poziva: " + err.message);
+                  }
+                }}
+                className="text-green-600 hover:underline"
+              >
+                Call
+              </button>
+              <button
+                onClick={() => setEditingContact(c)}
+                className="text-blue-500 hover:underline"
+              >
+                Edit
+              </button>
+              <button
+                onClick={async () => {
+                  await contactsApi.remove(c);
                   loadContacts();
                 }}
                 className="text-red-500 hover:underline"
               >
-                ✖
+                Delete
               </button>
+            </div>
             </li>
           ))}
         </ul>
@@ -460,6 +564,14 @@ function ContactsTab({ user }) {
           userId={user.userId}
           onClose={() => setShowAdd(false)}
           onCreated={loadContacts}
+        />
+      )}
+
+      {editingContact && (
+        <EditContactModal
+          contact={editingContact}
+          onClose={() => setEditingContact(null)}
+          onUpdated={loadContacts}
         />
       )}
     </div>
@@ -516,6 +628,105 @@ function AddContactModal({ userId, onClose, onCreated }) {
   );
 }
 
+function EditContactModal({ contact, onClose, onUpdated }) {
+  const isUserContact = contact.type === "userContact"; // 👈 provjera tipa
+
+  const [form, setForm] = useState({
+    fullName:
+      contact.contact?.fullName ||
+      `${contact.contact?.firstName || ""} ${contact.contact?.lastName || ""}`.trim(),
+    phone: contact.contact?.phone || "",
+    email: contact.contact?.email || "",
+    note: contact.contact?.note || "",
+    nickname: contact.contact?.nickname || "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  // 🔥 ovdje ide novi onSave
+  const onSave = async () => {
+    try {
+      setSaving(true);
+
+      await contactsApi.update({
+        ...contact,
+        nickname: form.nickname,
+        ...(!isUserContact ? form : {}), // ako je manualContact šalje sve fieldove
+      });
+
+      onUpdated();
+      onClose();
+    } catch (err) {
+      alert("Failed to update contact: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md">
+        <h3 className="text-xl font-semibold mb-4">Edit Contact</h3>
+
+        <div className="space-y-3">
+          <Input
+            label="Full Name"
+            name="fullName"
+            value={form.fullName}
+            onChange={onChange}
+            disabled={isUserContact} // disable za userContact
+          />
+          <Input
+            label="Phone"
+            name="phone"
+            value={form.phone}
+            onChange={onChange}
+            disabled={isUserContact}
+          />
+          <Input
+            label="Email"
+            name="email"
+            type="email"
+            value={form.email}
+            onChange={onChange}
+            disabled={isUserContact}
+          />
+          <Input
+            label="Note"
+            name="note"
+            value={form.note}
+            onChange={onChange}
+            disabled={isUserContact}
+          />
+          <Input
+            label="Nickname"
+            name="nickname"
+            value={form.nickname}
+            onChange={onChange}
+          />
+        </div>
+
+        <div className="mt-5 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border bg-gray-100 hover:bg-gray-200"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSave}
+            disabled={saving}
+            className="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- Keypad ---------------- */
 function KeypadTab() {
   const { user } = useAuth();
@@ -524,7 +735,29 @@ function KeypadTab() {
 
   const keys = ["1","2","3","4","5","6","7","8","9","*","0","#"];
 
-  const press = (k) => setNumber((prev) => (prev + k).slice(0, 32));
+  // long press logika
+  let pressTimer;
+
+  const handlePress = (k) => {
+    if (k === "0") {
+      pressTimer = setTimeout(() => {
+        setNumber((prev) => (prev + "+").slice(0, 32));
+        pressTimer = null; // reset
+      }, 600); // duže od 600ms = "+"
+    }
+  };
+
+  const handleRelease = (k) => {
+    if (k === "0") {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        setNumber((prev) => (prev + "0").slice(0, 32));
+      }
+    } else {
+      setNumber((prev) => (prev + k).slice(0, 32));
+    }
+  };
+
   const backspace = () => setNumber((prev) => prev.slice(0, -1));
   const clear = () => setNumber("");
 
@@ -546,32 +779,38 @@ function KeypadTab() {
   };
 
   return (
-    <div className="max-w-md mx-auto p-4">
+    <div className="max-w-3xl mx-auto px-6 py-4 w-full">
       <h2 className="text-2xl font-semibold mb-4">Keypad</h2>
 
-      <div className="mb-4 px-3 py-4 text-center text-2xl bg-white border rounded-lg font-mono tracking-widest">
+      <div className="mb-4 px-3 py-4 text-center text-3xl bg-white border rounded-lg font-mono tracking-widest">
         {number || <span className="text-gray-400">Enter number…</span>}
       </div>
 
-      <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
+      <div className="grid grid-cols-3 gap-4 max-w-md mx-auto">
         {keys.map(k => (
           <button
             key={k}
-            onClick={() => press(k)}
-            className="h-14 rounded-full bg-white border text-xl font-semibold hover:bg-gray-50 active:scale-95"
+            onMouseDown={() => handlePress(k)}
+            onMouseUp={() => handleRelease(k)}
+            onTouchStart={() => handlePress(k)}
+            onTouchEnd={() => handleRelease(k)}
+            className="relative px-10 py-6 rounded-2xl bg-white border text-3xl font-bold hover:bg-gray-50 active:scale-95 shadow-sm"
           >
             {k}
+            {k === "0" && (
+              <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-sm text-gray-500">+</span>
+            )}
           </button>
         ))}
       </div>
 
-      <div className="flex justify-center gap-3 mt-4">
-        <button onClick={backspace} className="px-4 py-2 rounded-lg border bg-white hover:bg-gray-50">⌫</button>
-        <button onClick={clear} className="px-4 py-2 rounded-lg border bg-white hover:bg-gray-50">Clear</button>
+      <div className="flex justify-center gap-3 mt-6">
+        <button onClick={backspace} className="px-5 py-2 rounded-lg border bg-white hover:bg-gray-50">⌫</button>
+        <button onClick={clear} className="px-5 py-2 rounded-lg border bg-white hover:bg-gray-50">Clear</button>
         <button
           onClick={call}
           disabled={saving}
-          className="px-6 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+          className="px-8 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
         >
           {saving ? "Calling…" : "Call"}
         </button>
@@ -580,8 +819,9 @@ function KeypadTab() {
   );
 }
 
+/* ---------------- Settings ---------------- */
 function SettingsTab({ user }) {
-  const { setUser } = useAuth(); // 👈 uzmi setUser iz contexta
+  const { setUser } = useAuth();
 
   const [form, setForm] = useState({
     firstName: user?.firstName || "",
@@ -590,7 +830,9 @@ function SettingsTab({ user }) {
     email: user?.email || "",
     countryId: user?.countryId || "",
     cityId: user?.cityId || "",
+    newPassword: "",
   });
+
   const [countries, setCountries] = useState([]);
   const [cities, setCities] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -618,7 +860,6 @@ function SettingsTab({ user }) {
       const res = await usersApi.update(user.userId, form);
       if (!res.ok) throw new Error(res.error || "Greška kod ažuriranja profila");
 
-      // 🚀 update konteksta odmah
       setUser(res.data);
       localStorage.setItem("user", JSON.stringify(res.data));
 
@@ -630,15 +871,53 @@ function SettingsTab({ user }) {
     }
   };
 
+  const onChangePassword = async () => {
+    try {
+      setSaving(true);
+      setMsg("");
+
+      const res = await usersApi.changePassword(user.userId, form.newPassword);
+      if (!res.ok) throw new Error(res.error || "Greška kod promjene lozinke");
+
+      setMsg("Lozinka uspješno promijenjena.");
+      setForm({ ...form, newPassword: "" });
+    } catch (err) {
+      setMsg("❌ " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className="max-w-md mx-auto p-4">
+    <div className="max-w-3xl mx-auto px-6 py-4 w-full">
       <h2 className="text-2xl font-semibold mb-4">Settings</h2>
 
       <div className="bg-white border rounded-xl p-4 space-y-4">
         <Input label="First Name" name="firstName" value={form.firstName} onChange={onChange} />
         <Input label="Last Name" name="lastName" value={form.lastName} onChange={onChange} />
         <Input label="Phone" name="phone" value={form.phone} onChange={onChange} />
-        <Input label="Email" name="email" type="email" value={form.email} onChange={onChange} />
+
+        {/* Email sa overlay-em */}
+        <div>
+          <label className="block text-sm font-medium">Email</label>
+          <input
+            type="email"
+            name="email"
+            value={user?.newEmail || form.email} 
+            onChange={onChange}
+            className={`mt-1 block w-full rounded-lg px-3 py-2 border focus:outline-none 
+              ${user?.newEmail
+                ? "border-yellow-400 bg-yellow-50 focus:ring-yellow-500"
+                : "border-gray-300 focus:ring-blue-500"
+              }`}
+          />
+
+          {user?.newEmail && (
+            <div className="mt-1 text-sm text-yellow-600">
+              Still using <b>{user.email}</b> until new is verified.
+            </div>
+          )}
+        </div>
 
         {/* Country select */}
         <div>
@@ -677,18 +956,164 @@ function SettingsTab({ user }) {
           </select>
         </div>
 
-        {msg && <div className="text-sm text-gray-600">{msg}</div>}
-
         <div className="flex justify-end">
           <button
             onClick={onSave}
             disabled={saving}
             className="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
           >
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving…" : "Save Profile"}
           </button>
         </div>
+
+        {/* Change password */}
+        <div className="border-t pt-4">
+          <h3 className="text-lg font-semibold mb-2">Change Password</h3>
+          <Input
+            label="New Password"
+            name="newPassword"
+            type="password"
+            value={form.newPassword}
+            onChange={onChange}
+          />
+          <div className="flex justify-end mt-2">
+            <button
+              onClick={onChangePassword}
+              disabled={saving || !form.newPassword}
+              className="px-5 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-60"
+            >
+              {saving ? "Changing…" : "Change Password"}
+            </button>
+          </div>
+        </div>
+
+        {msg && <div className="text-sm text-gray-600">{msg}</div>}
       </div>
+    </div>
+  );
+}
+
+/* ---------------- Users ---------------- */
+function UsersTab({ user }) {
+  const [q, setQ] = useState("");
+  const [users, setUsers] = useState([]);
+  const [myContacts, setMyContacts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadUsers();
+    loadMyContacts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // učitaj sve usere
+  async function loadUsers() {
+    try {
+      setLoading(true);
+      const res = await usersApi.list(); // 👈 /api/users
+      setUsers(res.data || []);
+    } catch (err) {
+      console.error("Failed to load users:", err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // učitaj moje kontakte (da znamo ko je već dodat)
+  async function loadMyContacts() {
+    try {
+      const res = await contactsApi.allCombined(user.userId);
+      setMyContacts(res.data || []);
+    } catch (err) {
+      console.error("Failed to load contacts:", err.message);
+    }
+  }
+
+  // helper da li je user već u kontaktima
+  function isAlreadyContact(contactUserId) {
+    return myContacts.some((c) => c.contact?.userId === contactUserId);
+  }
+
+  // dodavanje u kontakte
+  async function addToContacts(contactUserId, u) {
+    try {
+      const res = await contactsApi.createUserContact({
+        userId: user.userId,
+        contactUserId,
+      });
+      if (!res.ok) throw new Error(res.error || "Greška kod dodavanja");
+      alert(`✅ ${u.firstName} ${u.lastName} dodat u kontakte`);
+      loadMyContacts(); // odmah osvježi
+    } catch (err) {
+      alert("❌ " + err.message);
+    }
+  }
+
+  // filtriranje
+  const filtered = useMemo(() => {
+    return users
+      // izbaci mene
+      .filter((u) => u.userId !== user.userId)
+      // pretraga
+      .filter(
+        (u) =>
+          `${u.firstName} ${u.lastName}`.toLowerCase().includes(q.toLowerCase()) ||
+          (u.email || "").toLowerCase().includes(q.toLowerCase()) ||
+          (u.phone || "").includes(q)
+      );
+  }, [users, q, user.userId]);
+
+  return (
+    <div className="max-w-3xl mx-auto px-6 py-4 w-full">
+      <h2 className="text-2xl font-semibold mb-3">All Users</h2>
+
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search users…"
+        className="w-full mb-3 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+      />
+
+      {loading ? (
+        <div className="text-gray-500 border rounded-lg p-6 text-center">
+          Loading…
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-gray-500 border rounded-lg p-6 text-center">
+          No users found.
+        </div>
+      ) : (
+        <ul className="divide-y rounded-lg border bg-white">
+          {filtered.map((u) => (
+            <li
+              key={u.userId}
+              className="p-3 flex items-center justify-between"
+            >
+              <div>
+                <div className="font-medium">
+                  {displayName(u, "userContact")}
+                </div>
+                <div className="text-gray-500 text-sm">
+                  {u.phone || u.email}
+                </div>
+              </div>
+              {u.userId !== user.userId && (
+                <button
+                  onClick={() => addToContacts(u.userId, u)}
+                  disabled={isAlreadyContact(u.userId)}
+                  className={`px-3 py-1 rounded text-white ${
+                    isAlreadyContact(u.userId)
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  }`}
+                >
+                  {isAlreadyContact(u.userId) ? "Added" : "Add"}
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -705,4 +1130,16 @@ function TabPill({ active, onClick, children }) {
       {children}
     </button>
   );
+}
+
+function displayName(contact, type) {
+  if (!contact) return "Unknown";
+
+  if (contact.nickname) return contact.nickname;
+
+  if (type === "user" || type === "userContact") {
+    return `${contact.firstName || ""} ${contact.lastName || ""}`.trim() || "Unknown";
+  }
+
+  return contact.fullName || "Unknown";
 }

@@ -1,6 +1,7 @@
 // backend/controllers/user.js
 import { User, Country, City } from "../models/associations.js";
 import { VerificationToken } from "../models/VerificationToken.js";
+import { UserContact } from "../models/UserContact.js";
 import { transporter } from "../config/mailer.js";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
@@ -10,14 +11,13 @@ import jwt from "jsonwebtoken";
 function sanitizeUser(user) {
   const data = user.toJSON();
   delete data.password;
-  delete data.newEmail;
   return data;
 }
 
 // JWT token
 function generateJWT(user) {
   return jwt.sign(
-    { id: user.userId, email: user.email, admin: user.admin },
+    { id: user.userId, admin: user.admin },  // samo id + admin
     process.env.JWT_SECRET || "secret",
     { expiresIn: "7d" }
   );
@@ -86,16 +86,28 @@ export async function verify(req, res) {
 export async function login(req, res) {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ ok: false, error: "Nedostaju podaci" });
+    if (!email || !password) {
+      return res.status(400).json({ ok: false, error: "Nedostaju podaci" });
+    }
 
     const user = await User.findOne({ where: { email } });
     if (!user || !bcrypt.compareSync(password, user.password)) {
       return res.status(401).json({ ok: false, error: "Pogrešan email ili lozinka" });
     }
-    if (!user.active) return res.status(403).json({ ok: false, error: "Nalog nije verifikovan" });
+    if (!user.active) {
+      return res.status(403).json({ ok: false, error: "Nalog nije verifikovan" });
+    }
 
     const token = generateJWT(user);
-    res.json({ ok: true, data: { token, user: sanitizeUser(user) } });
+
+    // 🚀 Vrati token i sanitized user
+    res.json({
+      ok: true,
+      data: {
+        token,
+        user: sanitizeUser(user),
+      },
+    });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
@@ -127,7 +139,11 @@ export async function requestEmailChange(req, res) {
       html: `<p>Kliknite <a href="${verifyUrl}">ovdje</a> da potvrdite novu adresu.</p>`,
     });
 
-    res.json({ ok: true, message: "Link poslat na novi email." });
+    return res.json({
+      ok: true,
+      message: "Link poslat na novi email.",
+      data: sanitizeUser(user),   // 👈 vrati user da frontend ne izgubi state
+    });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
@@ -137,20 +153,21 @@ export async function requestEmailChange(req, res) {
 export async function verifyNewEmail(req, res) {
   try {
     const v = await VerificationToken.findOne({ where: { token: req.params.token } });
-    if (!v) return res.status(400).json({ ok: false, error: "Neispravan token" });
+    if (!v) return res.redirect("http://localhost:5173/email-change-failed"); // fail stranica
 
     const user = await User.findByPk(v.userId);
-    if (!user) return res.status(404).json({ ok: false, error: "Korisnik ne postoji" });
-    if (!user.newEmail) return res.status(400).json({ ok: false, error: "Nema novog emaila" });
+    if (!user) return res.redirect("http://localhost:5173/email-change-failed");
+    if (!user.newEmail) return res.redirect("http://localhost:5173/email-change-failed");
 
     user.email = user.newEmail;
     user.newEmail = null;
     await user.save();
     await v.destroy();
 
-    res.json({ ok: true, message: "Email ažuriran" });
+    // ✅ uspješno
+    return res.redirect("http://localhost:5173/email-change-success");
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
+    return res.redirect("http://localhost:5173/email-change-failed");
   }
 }
 
@@ -188,10 +205,59 @@ export async function update(req, res) {
     if (!user) return res.status(404).json({ ok: false, error: "Nije pronađen" });
 
     const data = { ...req.body };
-    if (data.password) data.password = bcrypt.hashSync(data.password, 10);
 
+    // ako ima password, hashuj ga
+    if (data.password) {
+      data.password = bcrypt.hashSync(data.password, 10);
+    }
+
+    // 🚫 blokiraj direktnu promjenu email-a → koristi requestEmailChange
+    if (data.email && data.email !== user.email) {
+      req.body.userId = user.userId;
+      req.body.newEmail = data.email;
+
+      // pokreni postojeću logiku
+      return await requestEmailChange(req, res);
+    }
+
+    // ostale promjene (ime, telefon, grad itd.)
     await user.update(data);
-    res.json({ ok: true, message: "Korisnik ažuriran", data: sanitizeUser(user) });
+
+    // 🔥 propagiraj promjene u UserContact
+    await UserContact.update(
+      {
+        fullName: `${user.firstName} ${user.lastName}`,
+        phone: user.phone,
+        email: user.email, // ostaje stari dok novi ne potvrdi
+      },
+      { where: { contactUserId: user.userId } }
+    );
+
+    res.json({
+      ok: true,
+      message: "Korisnik ažuriran",
+      data: sanitizeUser(user),
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message, data: sanitizeUser(user),});
+  }
+}
+
+// 🔑 Promjena passworda (ulogovan korisnik)
+export async function changePassword(req, res) {
+  try {
+    const { userId, newPassword } = req.body;
+    if (!userId || !newPassword) {
+      return res.status(400).json({ ok: false, error: "Nedostaju polja" });
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ ok: false, error: "Korisnik ne postoji" });
+
+    user.password = bcrypt.hashSync(newPassword, 10);
+    await user.save();
+
+    res.json({ ok: true, message: "Lozinka uspješno promijenjena." });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }

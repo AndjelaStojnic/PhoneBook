@@ -4,18 +4,44 @@ export const contactsApi = {
   allCombined: (userId, q = "") =>
     apiFetch(`/contacts-combined/user/${userId}/all${q ? `?q=${encodeURIComponent(q)}` : ""}`),
 
-    favorites: (userId) =>
+  favorites: (userId) =>
     apiFetch(`/contacts-combined/user/${userId}/all`).then((res) => ({
       ...res,
       data: (res.data || []).filter((c) => c.favorite),
     })),
 
+  // ➕ kreiranje ručnog kontakta
   create: (payload) =>
     apiFetch("/contacts", { method: "POST", body: payload }),
 
-  update: (id, payload) =>
-    apiFetch(`/contacts/${id}`, { method: "PUT", body: payload }),
+  // ➕ kreiranje userContact
+  createUserContact: (payload) =>
+    apiFetch("/user-contacts", { method: "POST", body: payload }),
 
-  remove: (id) =>
-    apiFetch(`/contacts/${id}`, { method: "DELETE" }),
+  // ✏️ univerzalni update (radi i za userContact i za manualContact)
+  update: (contact) => {
+    if (contact.type === "userContact") {
+      return apiFetch(`/user-contacts/${contact.id}`, {
+        method: "PUT",
+        body: {
+          favorite: contact.favorite,
+          nickname: contact.nickname,
+        },
+      });
+    } else {
+      return apiFetch(`/contacts/${contact.id}`, {
+        method: "PUT",
+        body: contact,
+      });
+    }
+  },
+
+  // 🗑 univerzalni remove (radi i za userContact i za manualContact)
+  remove: (contact) => {
+    if (contact.type === "userContact") {
+      return apiFetch(`/user-contacts/${contact.id}`, { method: "DELETE" });
+    } else {
+      return apiFetch(`/contacts/${contact.id}`, { method: "DELETE" });
+    }
+  },
 };

@@ -1,3 +1,4 @@
+// routes/index.js
 import { Router } from "express";
 import { sequelize } from "../config/db.js";
 
